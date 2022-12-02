@@ -1,5 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("@nomiclabs/hardhat-waffle")
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-ethers");
+
 const fs = require("fs");
 const privateKey = fs.readFileSync(".secret").toString();
 const ALCHEMY_PRIVATE_KEY = "g6M13KEhqZl6w7StjTDSKqpO5C1CAI6e"
@@ -15,5 +17,5 @@ module.exports = {
       accounts: [privateKey]
     },
   },
-  solidity: "0.8.17",
+  solidity: "0.8.1",
 }
