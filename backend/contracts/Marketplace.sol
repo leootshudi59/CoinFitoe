@@ -13,8 +13,9 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     using Counters for Counters.Counter;
     Counters.Counter private _allNFTsListed;
     Counters.Counter private _itemsSold;
+    Counters.Counter private _diggerMachineSmallDistributed;
     
-    uint256 _listingPrice = 0.001 gwei;
+    uint constant MAX_DIGGERMACHINESMALL_TO_MINT = 50;
 
     struct ListedToken {
         uint256 itemId;
@@ -37,16 +38,21 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     );
     
     mapping (uint256 => ListedToken) private tokenList;
+    mapping (address => Counters.Counter) private _tokensForAddress;
 
 
     constructor() {
         _owner = payable(msg.sender);
     }
 
+    function createDMS(address dmsContract, uint256 tokenId) public payable {
+        require (
+            _diggerMachineSmallDistributed.current() < MAX_DIGGERMACHINESMALL_TO_MINT,
+            "All the small Digger machines have been created");
 
-    function getListingPrice() public view returns (uint256) {
-        return _listingPrice;
+        createMarketItem(dmsContract, tokenId, 0);
     }
+
 
     function createMarketItem(
         address nftContractAddress,
@@ -54,7 +60,6 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         uint256 price
         ) public payable nonReentrant {
         require(msg.sender == _owner, "You are not the marketplace owner");
-        require(msg.value == _listingPrice, "Not enough money sent to list NFT");
         require(price >= 0, "Price must be positive");
 
         uint itemId = _allNFTsListed.current();
@@ -69,6 +74,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         );
         _allNFTsListed.increment();
 
+        _tokensForAddress[nftContractAddress].increment();
         IERC721(nftContractAddress).safeTransferFrom(msg.sender, address(this), tokenId); //transfer minted NFT to marketplace
     
         emit TokenListed(itemId, tokenId, nftContractAddress, address(0), msg.sender, price, false);
@@ -93,5 +99,30 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         }
 
         return items;
+    }
+
+    function fetchNFTsFromContractAddress(
+        address nftContractAddress
+    ) public view returns (ListedToken[] memory) {
+        ListedToken[] memory availableItems = fetchAllListedNFTsNotSold();
+        uint256 numberOfTokensOfThisContractAddress = _tokensForAddress[nftContractAddress].current();
+        ListedToken[] memory items = new ListedToken[](numberOfTokensOfThisContractAddress);
+        uint256 index = 0;
+
+        for (uint i = 0; i < availableItems.length; i += 1) {
+            ListedToken memory currentItem = availableItems[i];
+            if (currentItem.tokenAddress == nftContractAddress) {
+                items[index] = currentItem;
+                index++;
+            }
+        }
+        return items;
+    }
+
+    function sellToken(
+        address nftContract
+    ) public {
+        ListedToken[] memory availableItemsToSell = fetchNFTsFromContractAddress(nftContract);
+
     }
 }
