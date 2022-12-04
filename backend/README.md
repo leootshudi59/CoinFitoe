@@ -55,7 +55,7 @@ The contract will hold the proof of each attempt and execution
 *Structures*
 
     enum mapStatus
-            pending_validation
+            pending_OracleValidation
             published
             removed
 
@@ -67,6 +67,7 @@ The contract will hold the proof of each attempt and execution
         originalAmount      uint
         availableAmount     uint
         attempts            uint
+        status              mapStatus
 
 
     mapping userMaps list of userMaps
@@ -122,6 +123,7 @@ registerMap payable
             originalAmount      value send to the method
             availableAmount     value send to the method
             attempts            0
+            status              pending_OracleValidation
 
         add the user map to userMaps 
 
