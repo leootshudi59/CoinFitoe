@@ -110,25 +110,80 @@ describe("NFTs", () => {
         owner,
       } = await loadFixture(deployTokenFixture);
 
-      await DiggerMachineSmallToken.mintToken("www.token1.com");
-      await DiggerMachineLargeToken.mintToken("www.token1.com");
     })
 
     it("Should not list token if not minted", async () => {
       const {
         Marketplace,
+        DiggerMachineSmallToken,
         diggerMachineSmallAddress,
+        DiggerMachineLargeToken,
         diggerMachineLargeAddress,
         owner,
       } = await loadFixture(deployTokenFixture);
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineLargeToken.mintToken("www.token1.com");
 
       expect(Marketplace.createMarketItem(diggerMachineSmallAddress, 2, ethers.utils.parseUnits('1', 'ether'))).to.be.reverted;
       expect(Marketplace.createMarketItem(diggerMachineLargeAddress, 2, ethers.utils.parseUnits('1', 'ether'))).to.be.reverted;
     });
 
-    it("Should list correcty the 2 minted NFTs");
+    it("Should list correcty the 2 minted NFTs", async () => {
+      const {
+        Marketplace,
+        DiggerMachineSmallToken,
+        diggerMachineSmallAddress,
+        DiggerMachineLargeToken,
+        diggerMachineLargeAddress,
+        owner,
+      } = await loadFixture(deployTokenFixture);
+
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineLargeToken.mintToken("www.token1.com");
+
+      await Marketplace.createMarketItem(diggerMachineSmallAddress, 1, ethers.utils.parseUnits('1', 'ether'));
+      await Marketplace.createMarketItem(diggerMachineLargeAddress, 1, ethers.utils.parseUnits('1', 'ether'));
+      
+      const allTokens = await Marketplace.getAllTokens();
+      expect(allTokens.length).to.equal(2);
+    });
   })
 
+  context("selling", function() {
+    it("Should set status sold to true and change owner on marketplace when item is sold", async () => {
+      const {
+        Marketplace,
+        DiggerMachineSmallToken,
+        diggerMachineSmallAddress,
+        DiggerMachineLargeToken,
+        diggerMachineLargeAddress,
+        owner,
+        addr1
+      } = await loadFixture(deployTokenFixture);
+      
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineLargeToken.mintToken("www.token1.com");
+      await Marketplace.createMarketItem(diggerMachineSmallAddress, 1, ethers.utils.parseUnits('1', 'ether'));
+      await Marketplace.createMarketItem(diggerMachineLargeAddress, 1, ethers.utils.parseUnits('1', 'ether'));
+
+      const buyersInitialBalance = await addr1.getBalance();
+      const ownersInitialBalance = await owner.getBalance();
+    
+      expect(buyersInitialBalance).to.equal(ethers.utils.parseUnits('10000', 'ether'))
+      await Marketplace.connect(addr1).sellToken(diggerMachineLargeAddress, 1, {value: ethers.utils.parseUnits('1', 'ether')});
+      expect(await Marketplace.getNumberOfSoldItems()).to.equal(1);
+
+      const nftsFromSoldNftContract = await Marketplace.fetchNFTsFromContractAddress(diggerMachineLargeAddress);
+      expect(nftsFromSoldNftContract[0].sold).to.equal(true);
+      expect(nftsFromSoldNftContract[0].owner).to.equal(addr1.address)
+      expect(await DiggerMachineLargeToken.getOwner(1)).to.equal(addr1.address)
+      
+      const buyersNewBalance = await addr1.getBalance();
+      expect(buyersNewBalance).to.be.below(ethers.utils.parseUnits('9999', 'ether'))
+      const ownersNewBalance = await owner.getBalance();
+      expect(ownersNewBalance).to.be.above(ownersInitialBalance);
+    })
+  })
 
 
   // it("Sould mint 10 NFT and add them to listed items", async function () {

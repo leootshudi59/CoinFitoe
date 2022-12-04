@@ -17,7 +17,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     Counters.Counter private _diggerMachineSmallDistributed;
     
     struct ListedToken {
-        uint256 itemId; //starts at 0
+        uint256 itemId; //starts at 1
         uint256 tokenId; //starts at 1
         address tokenAddress;
         address payable owner;
@@ -48,14 +48,18 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     function getMarketplaceOwner() public view returns(address) {
         return _owner;
     }
-    
+
     function getAllTokens() public view returns(ListedToken[] memory) {
         ListedToken[] memory allItems = new ListedToken[](_allNFTsListed.current());
-        for (uint a = 1; a < _allNFTsListed.current(); a++) {
+        for (uint a = 0; a < _allNFTsListed.current(); a++) {
             uint i = a + 1;
-            allItems[i] = _tokenList[i];
+            allItems[a] = _tokenList[i];
         }
         return allItems;
+    }
+
+    function getNumberOfSoldItems() public view returns(uint256) {
+        return _itemsSold.current();
     }
 
     function deliverDiggerMachineSmall(address dmsContract, uint256 tokenId) public payable {
@@ -70,7 +74,8 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         ) public payable nonReentrant {
         require(msg.sender == _owner, "You are not the marketplace owner");
         require(price >= 0, "Price must be positive");
-
+        
+        _allNFTsListed.increment();
         uint itemId = _allNFTsListed.current();
         _tokenList[itemId] = ListedToken(
             itemId,
@@ -81,7 +86,6 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
             price,
             false
         );
-        _allNFTsListed.increment();
 
         _tokensForAddress[nftContractAddress].increment();
         IERC721(nftContractAddress).safeTransferFrom(msg.sender, address(this), tokenId); //transfer minted NFT to marketplace
@@ -90,7 +94,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     }
 
     
-    function fetchAllListedNFTsNotSold() public view returns (ListedToken[] memory) {
+    function getAllNFTsNotSold() public view returns (ListedToken[] memory) {
         uint256 totalItemCount = _allNFTsListed.current();
         uint256 itemsNotSold = _allNFTsListed.current() - _itemsSold.current();
         uint index = 0;
@@ -113,13 +117,14 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     function fetchNFTsFromContractAddress(
         address nftContractAddress
     ) public view returns (ListedToken[] memory) {
-        ListedToken[] memory availableItems = fetchAllListedNFTsNotSold();
+        //ListedToken[] memory availableItems = getAllNFTsNotSold();
         uint256 numberOfTokensOfThisContractAddress = _tokensForAddress[nftContractAddress].current();
         ListedToken[] memory items = new ListedToken[](numberOfTokensOfThisContractAddress);
         uint256 index = 0;
 
-        for (uint i = 0; i < availableItems.length; i++) {
-            ListedToken memory currentItem = availableItems[i];
+        for (uint a = 0; a < _allNFTsListed.current(); a++) {
+            uint i = a + 1;
+            ListedToken memory currentItem = _tokenList[i];
             if (currentItem.tokenAddress == nftContractAddress) {
                 items[index] = currentItem;
                 index++;
@@ -131,7 +136,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     function sellToken(
         address nftContract,
         uint tokenId
-    ) public payable {
+    ) public payable nonReentrant {
         ListedToken[] memory availableItemsToSell = fetchNFTsFromContractAddress(nftContract);
         // fetch the unbought items
         ListedToken memory itemToSell;
@@ -153,6 +158,6 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         _tokenList[itemToSellItemId].owner = payable(msg.sender); // transfer the NFT ownership to buyer (in marketplace)
         _tokenList[itemToSellItemId].sold = true; // set the value to sold
         _itemsSold.increment();
-        payable(_owner).transfer(_listingFee); // the marketplace owner gets paid on each transaction
+        //payable(_owner).transfer(_listingFee); // the marketplace owner gets paid on each transaction
     }
 }
