@@ -22,15 +22,16 @@ and this smart contract as an example:
 
 # NFTs 
 
-| Name                         | Description | Supply  | Price  |   |
-|------------------------------|-------------|---------|--------|---|
-| DiggerMachineSmall           | Desc1       | Supply1 | Price1 |   |
-| DiggerMachineLarge           | Desc2       | Supply2 | Price2 |   |
-| DiggerMachineCaterpilar      |             |         |        |   |
-| DistanceFinder               |             |         |        |   |
-| Laser                        |             |         |        |   |
-| Radar                        |             |         |        |   |
-| MultiDig                     |             |         |        |   |
+| Name                         | Description | Supply   | Price  |   |
+|------------------------------|-------------|--------- |--------|---|
+| DiggerMachineSmall           | 5 x 5 pixels digger    | Infinite (one for each player) | Price1 |   |
+| DiggerMachineLarge           | 20 x 20 pixels digger  | 50,000 |  |   |
+| DiggerMachineCaterpilar      | 50 x 50 pixels         | 20,000 |     |   |
+| DistanceFinder               | Indicate distance between the last targetted area and the nearest treasure (in pixels) | 5,000|        |   |
+| Laser                        | Highlights where other players have already digged             | 1,000        | 50 |   |
+| Magnet                       | Indicates the quandrant where the biggest treasure is located            |         |        |   |
+| Radar                        | Indicates tbe quadrant where the nearest treasur is located            |         |        |   |
+| MultiDig                     | Allow digging in 5 locations simultanisouly. You only pay 1 land access instead of paying 5 times            |         |        |   |
 
 
 # NFT Marketplace smart contracts
