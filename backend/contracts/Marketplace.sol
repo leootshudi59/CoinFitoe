@@ -9,17 +9,16 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract Marketplace is ReentrancyGuard, ERC721Holder {
     address payable _owner;
+    uint256 private _listingFee = 0.1 ether;
 
     using Counters for Counters.Counter;
     Counters.Counter private _allNFTsListed;
     Counters.Counter private _itemsSold;
     Counters.Counter private _diggerMachineSmallDistributed;
     
-    uint constant MAX_DIGGERMACHINESMALL_TO_MINT = 50;
-
     struct ListedToken {
-        uint256 itemId;
-        uint256 tokenId;
+        uint256 itemId; //starts at 0
+        uint256 tokenId; //starts at 1
         address tokenAddress;
         address payable owner;
         address payable seller;
@@ -37,7 +36,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         bool sold
     );
     
-    mapping (uint256 => ListedToken) private tokenList;
+    mapping (uint256 => ListedToken) private _tokenList;
     mapping (address => Counters.Counter) private _tokensForAddress;
 
 
@@ -45,11 +44,21 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         _owner = payable(msg.sender);
     }
 
-    function createDMS(address dmsContract, uint256 tokenId) public payable {
-        require (
-            _diggerMachineSmallDistributed.current() < MAX_DIGGERMACHINESMALL_TO_MINT,
-            "All the small Digger machines have been created");
 
+    function getMarketplaceOwner() public view returns(address) {
+        return _owner;
+    }
+    
+    function getAllTokens() public view returns(ListedToken[] memory) {
+        ListedToken[] memory allItems = new ListedToken[](_allNFTsListed.current());
+        for (uint a = 1; a < _allNFTsListed.current(); a++) {
+            uint i = a + 1;
+            allItems[i] = _tokenList[i];
+        }
+        return allItems;
+    }
+
+    function deliverDiggerMachineSmall(address dmsContract, uint256 tokenId) public payable {
         createMarketItem(dmsContract, tokenId, 0);
     }
 
@@ -63,7 +72,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         require(price >= 0, "Price must be positive");
 
         uint itemId = _allNFTsListed.current();
-        tokenList[itemId] = ListedToken(
+        _tokenList[itemId] = ListedToken(
             itemId,
             tokenId,
             nftContractAddress,
@@ -89,8 +98,8 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         ListedToken[] memory items = new ListedToken[](itemsNotSold);
         for (uint a = 0; a < totalItemCount; a++) {
             uint i = a + 1;
-            uint currentItemId = tokenList[i].itemId;
-            ListedToken storage currentItem = tokenList[currentItemId];
+            uint currentItemId = _tokenList[i].itemId;
+            ListedToken storage currentItem = _tokenList[currentItemId];
 
             if (currentItem.owner == address(0)) {
                 items[index] = currentItem;
@@ -109,7 +118,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         ListedToken[] memory items = new ListedToken[](numberOfTokensOfThisContractAddress);
         uint256 index = 0;
 
-        for (uint i = 0; i < availableItems.length; i += 1) {
+        for (uint i = 0; i < availableItems.length; i++) {
             ListedToken memory currentItem = availableItems[i];
             if (currentItem.tokenAddress == nftContractAddress) {
                 items[index] = currentItem;
@@ -120,9 +129,30 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
     }
 
     function sellToken(
-        address nftContract
-    ) public {
+        address nftContract,
+        uint tokenId
+    ) public payable {
         ListedToken[] memory availableItemsToSell = fetchNFTsFromContractAddress(nftContract);
+        // fetch the unbought items
+        ListedToken memory itemToSell;
 
+        for (uint i = 0; i < availableItemsToSell.length; i++) {
+            ListedToken memory currentItem = availableItemsToSell[i];
+            if (currentItem.tokenId == tokenId) {
+                itemToSell = currentItem;
+                break;
+            }
+        }
+        uint256 price = itemToSell.price;
+        uint256 itemToSellItemId = itemToSell.itemId;
+        require (msg.value == price, "Price is not correct");
+
+        itemToSell.seller.transfer(msg.value); // the seller receives the money
+        ERC721(nftContract).safeTransferFrom(address(this), msg.sender, tokenId); // transfer the NFT ownership to buyer (in the contract)
+        
+        _tokenList[itemToSellItemId].owner = payable(msg.sender); // transfer the NFT ownership to buyer (in marketplace)
+        _tokenList[itemToSellItemId].sold = true; // set the value to sold
+        _itemsSold.increment();
+        payable(_owner).transfer(_listingFee); // the marketplace owner gets paid on each transaction
     }
 }

@@ -4,11 +4,11 @@ const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("NFTs", () => {
   let sellingPrice;
-  let dmLargeAddress = "";
-  let dmSmallAddress = "";
 
   async function deployTokenFixture() {
-    const MarketplaceFactory = await ethers.getContractFactory("Marketplace");
+    const MarketplaceFactory = await ethers.getContractFactory(
+      "Marketplace"
+    );
     const DiggerMachineSmallFactory = await ethers.getContractFactory(
       "DiggerMachineSmall"
     );
@@ -24,14 +24,14 @@ describe("NFTs", () => {
     const Marketplace = await MarketplaceFactory.deploy();
     const marketplaceAddress = Marketplace.address;
 
-    const DiggerMachineSmallToken = await DiggerMachineSmallFactory.deploy(
-      marketplaceAddress
-    );
-    const DiggerMachineLargeToken = await DiggerMachineLargeFactory.deploy(
-      marketplaceAddress
-    );
-    const DiggerMachineCaterpillarToken =
-      await DiggerMachineCaterpillarFactory.deploy(marketplaceAddress);
+    const DiggerMachineSmallToken = await DiggerMachineSmallFactory.deploy(marketplaceAddress);
+    const diggerMachineSmallAddress = DiggerMachineSmallToken.address;
+
+    const DiggerMachineLargeToken = await DiggerMachineLargeFactory.deploy(marketplaceAddress);
+    const diggerMachineLargeAddress = DiggerMachineLargeToken.address;
+
+    const DiggerMachineCaterpillarToken = await DiggerMachineCaterpillarFactory.deploy(marketplaceAddress);
+    const diggerMachineCaterpillarAddress = DiggerMachineCaterpillarToken.address;
 
     await Marketplace.deployed();
     await DiggerMachineSmallToken.deployed();
@@ -42,66 +42,94 @@ describe("NFTs", () => {
       Marketplace,
       marketplaceAddress,
       DiggerMachineSmallToken,
+      diggerMachineSmallAddress,
       DiggerMachineLargeToken,
+      diggerMachineLargeAddress,
       DiggerMachineCaterpillarToken,
+      diggerMachineCaterpillarAddress,
       owner,
       addr1,
       addr2,
     };
   }
 
-  beforeEach(async function () {
-    const { Marketplace, DiggerMachineSmallToken, DiggerMachineLargeToken } = await loadFixture(deployTokenFixture);
+  context("initialisation", function() {
+    it("Should mint 2 of each digger machine NFTs and the owner should be the address that deployed the contracts", async () => {
+      const {
+        DiggerMachineSmallToken,
+        DiggerMachineLargeToken,
+        DiggerMachineCaterpillarToken,
+        owner,
+      } = await loadFixture(deployTokenFixture);
+  
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineSmallToken.mintToken("www.token2.com");
+      const smallSupply = await DiggerMachineSmallToken.totalSupply();
+      expect(smallSupply).to.equal(2);
+  
+      expect(await DiggerMachineSmallToken.balanceOf(owner.address)).to.equal(2);
+      for (var i = 1; i <= smallSupply; i++) {
+        expect(await DiggerMachineSmallToken.getOwner(i)).to.equal(owner.address);
+      }
+  
+      await DiggerMachineLargeToken.mintToken("www.token1.com");
+      await DiggerMachineLargeToken.mintToken("www.token2.com");
+      const largeSupply = await DiggerMachineLargeToken.totalSupply();
+      expect(largeSupply).to.equal(2);
+  
+      expect(await DiggerMachineLargeToken.balanceOf(owner.address)).to.equal(2);
+      for (var i = 1; i <= largeSupply; i++) {
+        expect(await DiggerMachineLargeToken.getOwner(i)).to.equal(owner.address);
+      }
+  
+      await DiggerMachineCaterpillarToken.mintToken("www.token1.com");
+      await DiggerMachineCaterpillarToken.mintToken("www.token2.com");
+      const caterpillarSupply = await DiggerMachineCaterpillarToken.totalSupply();
+      expect(caterpillarSupply).to.equal(2);
+  
+      expect(await DiggerMachineCaterpillarToken.balanceOf(owner.address)).to.equal(2);
+      for (var i = 1; i <= caterpillarSupply; i++) {
+        expect(await DiggerMachineCaterpillarToken.getOwner(i)).to.equal(owner.address);
+      }
+    });
 
-    dmSmallAddress = DiggerMachineSmallToken.address;
-    dmLargeAddress = DiggerMachineLargeToken.address;
+    it("Should generate an empty marketplace and the owner should be the address that deployed the marketplace", async () => {
+      const { Marketplace, owner } = await loadFixture(deployTokenFixture);
 
-    //sellingPrice = ethers.utils.parseUnits("0.01", "ether"); // arbitrary value, just for testing
-  });
+      const marketplaceItems = await Marketplace.getAllTokens();
+      expect(marketplaceItems.length).to.equal(0);
+      expect(await Marketplace.getMarketplaceOwner()).to.equal(owner.address);
+    });
+  })
 
-  it("Should mint 3 of each digger machine NFTs and the owner should be the address that deployed the contracts", async function () {
-    const {
-      DiggerMachineSmallToken,
-      DiggerMachineLargeToken,
-      DiggerMachineCaterpillarToken,
-      owner,
-    } = await loadFixture(deployTokenFixture);
+  context("listing", function() {
+    beforeEach(async function() {
+      const {
+        DiggerMachineSmallToken,
+        DiggerMachineLargeToken,
+        owner,
+      } = await loadFixture(deployTokenFixture);
 
-    await DiggerMachineSmallToken.mintToken("www.token1.com");
-    await DiggerMachineSmallToken.mintToken("www.token2.com");
-    await DiggerMachineSmallToken.mintToken("www.token3.com");
-    const smallSupply = await DiggerMachineSmallToken.totalSupply();
-    expect(smallSupply).to.equal(3);
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineLargeToken.mintToken("www.token1.com");
+    })
 
-    expect(await DiggerMachineSmallToken.balanceOf(owner.address)).to.equal(3);
-    for (var i = 1; i <= smallSupply; i++) {
-      expect(await DiggerMachineSmallToken.getOwner(i)).to.equal(owner.address);
-    }
+    it("Should not list token if not minted", async () => {
+      const {
+        Marketplace,
+        diggerMachineSmallAddress,
+        diggerMachineLargeAddress,
+        owner,
+      } = await loadFixture(deployTokenFixture);
 
-    await DiggerMachineLargeToken.mintToken("www.token1.com");
-    await DiggerMachineLargeToken.mintToken("www.token2.com");
-    await DiggerMachineLargeToken.mintToken("www.token3.com");
-    const largeSupply = await DiggerMachineLargeToken.totalSupply();
-    expect(largeSupply).to.equal(3);
+      expect(Marketplace.createMarketItem(diggerMachineSmallAddress, 2, ethers.utils.parseUnits('1', 'ether'))).to.be.reverted;
+      expect(Marketplace.createMarketItem(diggerMachineLargeAddress, 2, ethers.utils.parseUnits('1', 'ether'))).to.be.reverted;
+    });
 
-    expect(await DiggerMachineLargeToken.balanceOf(owner.address)).to.equal(3);
-    for (var i = 1; i <= largeSupply; i++) {
-      expect(await DiggerMachineLargeToken.getOwner(i)).to.equal(owner.address);
-    }
+    it("Should list correcty the 2 minted NFTs");
+  })
 
-    await DiggerMachineCaterpillarToken.mintToken("www.token1.com");
-    await DiggerMachineCaterpillarToken.mintToken("www.token2.com");
-    await DiggerMachineCaterpillarToken.mintToken("www.token3.com");
-    const caterpillarSupply = await DiggerMachineCaterpillarToken.totalSupply();
-    expect(caterpillarSupply).to.equal(3);
 
-    expect(await DiggerMachineCaterpillarToken.balanceOf(owner.address)).to.equal(3);
-    for (var i = 1; i <= caterpillarSupply; i++) {
-      expect(await DiggerMachineCaterpillarToken.getOwner(i)).to.equal(
-        owner.address
-      );
-    }
-  });
 
   // it("Sould mint 10 NFT and add them to listed items", async function () {
   //   const { Marketplace, DiggerMachineSmallToken, DiggerMachineLargeToken } = await loadFixture(deployTokenFixture);
