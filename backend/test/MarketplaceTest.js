@@ -6,8 +6,18 @@ describe("NFTs", () => {
   let sellingPrice;
 
   async function deployTokenFixture() {
+    const StringUtilsFactory = await ethers.getContractFactory(
+      "StringUtils"
+    )
+    const StringUtils = await StringUtilsFactory.deploy();
+    const stringUtilsAddress = StringUtils.address;
+
     const MarketplaceFactory = await ethers.getContractFactory(
-      "Marketplace"
+      "Marketplace", {
+        libraries: {
+          StringUtils: stringUtilsAddress
+        }
+      }
     );
     const DiggerMachineSmallFactory = await ethers.getContractFactory(
       "DiggerMachineSmall"
@@ -20,6 +30,7 @@ describe("NFTs", () => {
     );
 
     const [owner, addr1, addr2] = await ethers.getSigners();
+
 
     const Marketplace = await MarketplaceFactory.deploy();
     const marketplaceAddress = Marketplace.address;
@@ -150,6 +161,38 @@ describe("NFTs", () => {
   })
 
   context("selling", function() {
+    it("Should not deliver more than 1 Digger machine small", async () => {
+      const {
+        Marketplace,
+        DiggerMachineSmallToken,
+        diggerMachineSmallAddress,
+        DiggerMachineLargeToken,
+        diggerMachineLargeAddress,
+        owner,
+        addr1
+      } = await loadFixture(deployTokenFixture);
+
+      await DiggerMachineSmallToken.mintToken("www.token1.com");
+      await DiggerMachineSmallToken.mintToken("www.token2.com");
+      await DiggerMachineSmallToken.mintToken("www.token3.com");
+      await Marketplace.deliverDiggerMachineSmallTo(diggerMachineSmallAddress, 1, addr1.address)
+      expect (Marketplace.deliverDiggerMachineSmallTo(diggerMachineSmallAddress, 2, addr1.address)).to.be.revertedWith("Already has a DMS")
+    })
+
+    it("Should revert when trying to sell/buy a Digger machine small", async () => {
+      const {
+        Marketplace,
+        DiggerMachineSmallToken,
+        diggerMachineSmallAddress,
+        addr1
+      } = await loadFixture(deployTokenFixture);
+
+      await DiggerMachineSmallToken.mintToken("www.token3.com");
+      await Marketplace.deliverDiggerMachineSmallTo(diggerMachineSmallAddress, 1, addr1.address);
+      
+      expect(Marketplace.connect(addr1).buyToken(diggerMachineSmallAddress, 1)).to.be.revertedWith("This item cannot be sold");
+    })
+
     it("Should set status sold to true and change owner on marketplace when item is sold", async () => {
       const {
         Marketplace,
@@ -170,7 +213,7 @@ describe("NFTs", () => {
       const ownersInitialBalance = await owner.getBalance();
     
       expect(buyersInitialBalance).to.equal(ethers.utils.parseUnits('10000', 'ether'))
-      await Marketplace.connect(addr1).sellToken(diggerMachineLargeAddress, 1, {value: ethers.utils.parseUnits('1', 'ether')});
+      await Marketplace.connect(addr1).buyToken(diggerMachineLargeAddress, 1, {value: ethers.utils.parseUnits('1', 'ether')});
       expect(await Marketplace.getNumberOfSoldItems()).to.equal(1);
 
       const nftsFromSoldNftContract = await Marketplace.fetchNFTsFromContractAddress(diggerMachineLargeAddress);
@@ -186,27 +229,6 @@ describe("NFTs", () => {
   })
 
 
-  // it("Sould mint 10 NFT and add them to listed items", async function () {
-  //   const { Marketplace, DiggerMachineSmallToken, DiggerMachineLargeToken } = await loadFixture(deployTokenFixture);
-
-  //   let dmlTokenId = await DiggerMachineLargeToken.getTokenID();
-  //   expect(dmlTokenId).to.equal(1)
-
-  //   for (var i = 1; i < 11; i+=1) {
-  //     await dmlNFT.mintToken("www.token.com");
-  //     await Marketplace.createMarketItem(dmLargeAddress, i, sellingPrice, {value: listingPrice});
-  //     let owner = await dmlNFT._ownerOf(i);
-  //     console.log(owner)
-  //   }
-
-  //   const tokensListedReadyToBeSold = await Marketplace.fetchAllListedNFTsNotSold();
-  //   expect(tokensListedReadyToBeSold.length).to.equal(10);
-
-  //   tokensListedReadyToBeSold.forEach(nft => {
-  //     expect(nft.owner).to.equal('0x0000000000000000000000000000000000000000');
-  //   });
-  // })
-
   // it("Should not be able to mint a Digger Machine Small NFT when number reaches max limit", async function () {
   //   let dmsTokenId = await dmsNFT.getTokenID();
   //   expect(dmsTokenId).to.equal(1);
@@ -221,29 +243,4 @@ describe("NFTs", () => {
   //   expect(dmsNFT.mintToken("www.tokensmall.com")).to.be.revertedWith("All the small Digger machines have been created");
   // })
 
-  // it("Sould return only DMS NFT when calling fetchNFTsFromContractAddress", async function() {
-  //     await dmlNFT.mintToken("www.token.com1");
-  //     await marketplace.createMarketItem(dmLargeAddress, 1, sellingPrice, {value: listingPrice});
-
-  //     await dmsNFT.mintToken("www.token.com2");
-  //     await marketplace.createMarketItem(dmSmallAddress, 1, sellingPrice, {value: listingPrice});
-
-  //     await dmlNFT.mintToken("www.token.com3");
-  //     await marketplace.createMarketItem(dmLargeAddress, 2, sellingPrice, {value: listingPrice});
-  //     await dmlNFT.mintToken("www.token.com4");
-  //     await marketplace.createMarketItem(dmLargeAddress, 3, sellingPrice, {value: listingPrice});
-
-  //     await dmsNFT.mintToken("www.token.com5");
-  //     await marketplace.createMarketItem(dmSmallAddress, 2, sellingPrice, {value: listingPrice});
-
-  //     let dmsTokenId = await dmsNFT.getTokenID();
-  //     let dmlTokenId = await dmlNFT.getTokenID();
-  //     expect(dmsTokenId).to.equal(3);
-  //     expect(dmlTokenId).to.equal(4);
-
-  //     let dmsItems = await marketplace.fetchNFTsFromContractAddress(dmSmallAddress);
-  //     let numberOfItemsReturned = dmsItems.length;
-  //     console.log(dmsItems)
-  //     expect(numberOfItemsReturned).to.equal(2);
-  // })
 });

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 
-contract Game is ReentrancyGuard, ERC721Holder {
+contract Reveal is ReentrancyGuard, ERC721Holder {
     address payable _owner;
 
     using Counters for Counters.Counter;

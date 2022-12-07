@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./library/StringUtils.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -62,8 +63,32 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         return _itemsSold.current();
     }
 
-    function deliverDiggerMachineSmall(address dmsContract, uint256 tokenId) public payable {
-        createMarketItem(dmsContract, tokenId, 0);
+    function deliverDiggerMachineSmallTo(address dmsContract, uint256 tokenId, address to) public payable {
+        ListedToken[] memory diggerMachineItems = fetchNFTsFromContractAddress(dmsContract);
+        
+        bool alreadyHasADiggerMachineSmall = false;
+        for(uint i = 0; i < _diggerMachineSmallDistributed.current(); i++) {
+            if (diggerMachineItems[i].owner == to) {
+                alreadyHasADiggerMachineSmall = true;
+            }
+        }
+        require (alreadyHasADiggerMachineSmall == false, "Already has a DMS");
+        _allNFTsListed.increment();
+        uint itemId = _allNFTsListed.current();
+        _tokenList[itemId] = ListedToken(
+            itemId,
+            tokenId,
+            dmsContract,
+            payable(to),
+            payable(msg.sender),
+            0,
+            false
+        );
+        _tokensForAddress[dmsContract].increment();
+        _diggerMachineSmallDistributed.increment();
+        IERC721(dmsContract).safeTransferFrom(msg.sender, to, tokenId); // transfer the NFT ownership to the one it's deliverered to (in the contract)
+
+        emit TokenListed(itemId, tokenId, dmsContract, address(0), msg.sender, 0, false);
     }
 
 
@@ -88,7 +113,7 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         );
 
         _tokensForAddress[nftContractAddress].increment();
-        IERC721(nftContractAddress).safeTransferFrom(msg.sender, address(this), tokenId); //transfer minted NFT to marketplace
+        IERC721(nftContractAddress).safeTransferFrom(msg.sender, address(this), tokenId);  // transfer the NFT ownership to the marketplace (in the contract)
     
         emit TokenListed(itemId, tokenId, nftContractAddress, address(0), msg.sender, price, false);
     }
@@ -133,10 +158,13 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         return items;
     }
 
-    function sellToken(
+
+    function buyToken(
         address nftContract,
         uint tokenId
     ) public payable nonReentrant {
+        _requireIsNotADiggerMachineSmall(nftContract);
+
         ListedToken[] memory availableItemsToSell = fetchNFTsFromContractAddress(nftContract);
         // fetch the unbought items
         ListedToken memory itemToSell;
@@ -159,5 +187,10 @@ contract Marketplace is ReentrancyGuard, ERC721Holder {
         _tokenList[itemToSellItemId].sold = true; // set the value to sold
         _itemsSold.increment();
         //payable(_owner).transfer(_listingFee); // the marketplace owner gets paid on each transaction
+    }
+
+    function _requireIsNotADiggerMachineSmall(address nftContract) public view virtual {
+        string memory notAllowed = "DMS";
+        require(!StringUtils.equal(ERC721(nftContract).symbol(), notAllowed), "This item cannot be sold");
     }
 }
